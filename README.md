@@ -1,2 +1,0 @@
-# Mention-Bot
-Mention Bot 
