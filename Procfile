@@ -1,1 +1,1 @@
-python mention_bot.py
+python3 mention_bot.py
