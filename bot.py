@@ -7,32 +7,47 @@ import threading
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Flask app for health check
+# Dummy web server for Koyeb health check
 app = Flask(__name__)
 
 @app.route("/")
-def index():
+def home():
     return "Bot is alive!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
-# Telegram bot logic
+# Command: /mentionall
 async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
+
     if chat.type not in ['group', 'supergroup']:
         await update.message.reply_text("This command only works in groups.")
         return
 
+    members = set()
+
     try:
-        admins = await context.bot.get_chat_administrators(chat.id)
+        async for message in context.bot.get_chat_history(chat_id=chat.id, limit=100):
+            if message.from_user:
+                members.add(message.from_user)
     except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
+        await update.message.reply_text(f"Error fetching messages: {e}")
         return
 
-    mentions = [f"[{a.user.full_name}](tg://user?id={a.user.id})" for a in admins]
-    await update.message.reply_text(" ".join(mentions), parse_mode=ParseMode.MARKDOWN)
+    if not members:
+        await update.message.reply_text("Couldn't find active members to mention.")
+        return
+
+    mentions = []
+    for user in members:
+        name = user.full_name
+        mention = f"[{name}](tg://user?id={user.id})"
+        mentions.append(mention)
+
+    mention_text = ' '.join(mentions)
+    await update.message.reply_text(mention_text, parse_mode=ParseMode.MARKDOWN)
 
 def main():
     threading.Thread(target=run_web).start()  # Start Flask server
