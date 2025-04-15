@@ -8,7 +8,7 @@ async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
 
     if chat.type not in ['group', 'supergroup']:
-        await update.message.reply_text("यह कमांड केवल ग्रुप में काम करता है।")
+        await update.message.reply_text("This command only works in group chats.")
         return
 
     try:
@@ -30,7 +30,7 @@ async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("mentionall", mention_all))
-    print("Bot चल रहा है...")
+    print("Bot is running...")
     app.run_polling()
 
 if __name__ == '__main__':
