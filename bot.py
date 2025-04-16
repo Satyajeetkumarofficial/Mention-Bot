@@ -1,5 +1,3 @@
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pymongo import MongoClient
@@ -30,8 +28,8 @@ async def start(client, message: Message):
 @app.on_message(filters.command("mentionall") & filters.group)
 async def mention_all(client, message: Message):
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if not (member.status in ["administrator", "creator"]):
-        return await message.reply("सिर्फ़ ग्रुप एडमिन्स इस कमांड का इस्तेमाल कर सकते हैं।")
+    if not (member.status == "creator" or (member.status == "administrator" and member.can_manage_chat)):
+        return await message.reply("यह कमांड सिर्फ़ बॉट एडमिन या ग्रुप ओनर ही चला सकते हैं।")
     chat_id = message.chat.id
     mentions = []
     async for member in app.get_chat_members(chat_id):
@@ -80,15 +78,4 @@ async def save_group_user(client, message: Message):
             upsert=True
         )
 
-def run_dummy_server():
-    class SimpleHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Bot is running!")
-
-    server = HTTPServer(('0.0.0.0', 8080), SimpleHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_dummy_server).start()
 app.run()
