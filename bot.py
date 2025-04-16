@@ -2,6 +2,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from pyrogram.enums import ChatMemberStatus
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import asyncio
@@ -28,27 +29,34 @@ async def start(client, message: Message):
     await message.reply_text(f"Hey {message.from_user.first_name}, I'm your group mention bot!")
 
 @app.on_message(filters.command("mentionall") & filters.group)
-async def mention_all(client, message: Message):
-    member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if not (member.status == "creator" or (member.status == "administrator" and member.can_manage_chat)):
-        return await message.reply("यह कमांड सिर्फ़ बॉट एडमिन या ग्रुप ओनर ही चला सकते हैं।")
-    chat_id = message.chat.id
-    mentions = []
-    async for member in app.get_chat_members(chat_id):
-        if member.user.is_bot is False:
-            mentions.append(f"[{member.user.first_name}](tg://user?id={member.user.id})")
+async def mention_all(client: Client, message: Message):
+    try:
+        # Check if the user is admin or creator using pyrogram.enums
+        member = await client.get_chat_member(message.chat.id, message.from_user.id)
 
-    mention_text = ''
-    count = 0
-    for mention in mentions:
-        mention_text += mention + " "
-        count += 1
-        if count % 5 == 0:
+        if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+            return await message.reply("❌ केवल ग्रुप एडमिन्स इस कमांड का उपयोग कर सकते हैं।")
+
+        # Mention all non-bot users
+        mentions = []
+        async for m in client.get_chat_members(message.chat.id):
+            if not m.user.is_bot:
+                mentions.append(f"[{m.user.first_name}](tg://user?id={m.user.id})")
+
+        mention_text = ''
+        count = 0
+        for mention in mentions:
+            mention_text += mention + " "
+            count += 1
+            if count % 5 == 0:
+                await message.reply(mention_text)
+                mention_text = ''
+        if mention_text:
             await message.reply(mention_text)
-            mention_text = ''
-    if mention_text:
-        await message.reply(mention_text)
 
+    except Exception as e:
+        print(f"Error: {e}")
+        await message.reply("⚠️ कुछ त्रुटि हुई।")
 @app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
 async def broadcast(client, message: Message):
     if not message.reply_to_message:
