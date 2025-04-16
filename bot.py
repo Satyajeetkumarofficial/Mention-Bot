@@ -53,7 +53,7 @@ async def mention_all(client: Client, message: Message):
         for mention in mentions:
             mention_text += mention + " "
             count += 1
-            if count % 5 == 0:
+            if count % 20 == 0:
                 if custom_text:
                     await message.reply(mention_text + "\n\n" + custom_text)
                 else:
