@@ -36,6 +36,12 @@ def save_members():
     with open(DATA_FILE, "w") as f:
         json.dump(members_db, f)
 
+# /start command
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "I am a Mention Bot.\nAdd me to your group and send /mentionall to mention all known members."
+    )
+
 # Store users when they send a message
 async def store_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -89,6 +95,7 @@ def main():
     threading.Thread(target=run_web).start()
 
     app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_bot.add_handler(CommandHandler("start", start_command))
     app_bot.add_handler(CommandHandler("mentionall", mention_all))
     app_bot.add_handler(CommandHandler("adduser", add_user))
     app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), store_user))
