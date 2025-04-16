@@ -1,2 +1,4 @@
-python-telegram-bot==20.7
-psutil
+pyrogram
+tgcrypto
+pymongo
+python-dotenv
