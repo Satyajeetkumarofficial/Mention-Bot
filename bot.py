@@ -1,3 +1,5 @@
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pymongo import MongoClient
@@ -78,4 +80,15 @@ async def save_group_user(client, message: Message):
             upsert=True
         )
 
+def run_dummy_server():
+    class SimpleHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot is running!")
+
+    server = HTTPServer(('0.0.0.0', 8080), SimpleHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_dummy_server).start()
 app.run()
