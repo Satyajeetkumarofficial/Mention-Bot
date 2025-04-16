@@ -1,52 +1,31 @@
-
 # Telegram Mention Bot
 
-A powerful Telegram bot built in Python that can:
-
-- Welcome users with /start
-- Mention all group members (old and new) with /mentionall
-- Broadcast messages to all users
-- Show bot status (total users and groups)
-- Log user joins to a log channel
-- Store users and groups using MongoDB
-- Easily deployable on [Koyeb](https://www.koyeb.com)
+A Telegram bot to mention all members (including past ones), broadcast messages, and show bot/group stats.
 
 ## Features
 
-- /start – Sends welcome message
-- /help – Lists available commands
-- /mentionall – Mentions all group members (stored in DB)
-- /broadcast <text> – Sends a message to all users (admin only)
-- /status – Shows total users and groups
-- MongoDB integration to track users and groups
-- Logs member joins to a specific log channel
+- Mention all users in a group using `/mentionall`
+- Broadcast messages to all users using `/broadcast`
+- Show bot-wide stats with `/status`
+- Show group-specific user count with `/groupstatus`
 
-## Environment Variables
+## Deployment
 
-Set these in your Koyeb dashboard:
+1. Clone the repo or extract this ZIP.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Set your bot token in an environment variable:
+   ```bash
+   export BOT_TOKEN=your_bot_token_here
+   ```
+4. Run the bot:
+   ```bash
+   python bot.py
+   ```
 
-| Variable              | Description                            |
-|-----------------------|----------------------------------------|
-| BOT_TOKEN             | Your Telegram Bot Token                |
-| MONGO_URL             | Your MongoDB connection string         |
-| LOG_CHANNEL_ID        | Log channel ID (e.g. -1001234567890)   |
-| YOUR_ADMIN_USER_ID    | Your Telegram numeric user ID          |
+## Notes
 
-## Deployment (Koyeb)
-
-1. Push this repo to GitHub
-2. Go to Koyeb and create a new service
-3. Link your GitHub repo
-4. Set environment variables
-5. Set run command: `python bot.py`
-6. Deploy!
-
-## Files
-
-- bot.py – Main bot code
-- requirements.txt – Dependencies
-- Procfile – For Koyeb process
-
-## License
-
-MIT License
+- Users must start the bot in private chat to receive broadcast messages.
+- The bot stores all users who interact in groups or private chat.

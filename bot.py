@@ -1,131 +1,150 @@
-import json
 import os
-import threading
-from flask import Flask
-from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+import json
+import psutil
+from telegram import Update, ParseMode
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-DATA_FILE = "members.json"
+members_file = "members.json"
 
-app = Flask(__name__)
-
-# Load or create member list
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
+# Load members database
+if os.path.exists(members_file):
+    with open(members_file, "r") as f:
         members_db = json.load(f)
 else:
     members_db = {}
 
-@app.route("/")
-def home():
-    return "Bot is alive!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
-
 def save_members():
-    with open(DATA_FILE, "w") as f:
+    with open(members_file, "w") as f:
         json.dump(members_db, f)
 
-# /start command
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "I am a Mention Bot.\nAdd me to your group and send /mentionall to mention all known members."
-    )
-
-# Store users when they send a message
 async def store_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat = update.effective_chat
-    if not user or chat.type not in ["group", "supergroup"]:
+    if not user:
         return
 
+    user_id = str(user.id)
+    user_name = user.full_name
     chat_id = str(chat.id)
-    if chat_id not in members_db:
-        members_db[chat_id] = {}
-    members_db[chat_id][str(user.id)] = user.full_name
+
+    if chat.type in ["group", "supergroup"]:
+        if chat_id not in members_db:
+            members_db[chat_id] = {}
+        members_db[chat_id][user_id] = user_name
+    elif chat.type == "private":
+        if "private_users" not in members_db:
+            members_db["private_users"] = {}
+        members_db["private_users"][user_id] = user_name
+
     save_members()
 
-# Add user manually
-async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = str(update.effective_chat.id)
-    if len(context.args) < 2:
-        await update.message.reply_text("Usage: /adduser <user_id> <full name>")
-        return
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await store_user(update, context)
+    await update.message.reply_text("I am Mention Bot.
+Add me to your group and send /mentionall")
 
-    user_id = context.args[0]
-    full_name = " ".join(context.args[1:])
-    
-    if chat_id not in members_db:
-        members_db[chat_id] = {}
-
-    members_db[chat_id][user_id] = full_name
-    save_members()
-    await update.message.reply_text(f"Added: {full_name} (ID: {user_id})")
-
-# Mention all known users
 async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
-    if chat_id not in members_db or not members_db[chat_id]:
-        await update.message.reply_text("No members to mention.")
+    members = members_db.get(chat_id, {})
+
+    if not members:
+        await update.message.reply_text("No members found.")
         return
 
-    mentions = []
-    for user_id, name in members_db[chat_id].items():
-        mention = f"[{name}](tg://user?id={user_id})"
-        mentions.append(mention)
+    text = ""
+    for uid, name in members.items():
+        text += f"[{name}](tg://user?id={uid}) "
+        if len(text) > 3500:
+            await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+            text = ""
 
-    chunk_size = 10
-    for i in range(0, len(mentions), chunk_size):
-        await update.message.reply_text(
-            ' '.join(mentions[i:i + chunk_size]),
-            parse_mode=ParseMode.MARKDOWN
-        )
+    if text:
+        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
-# Broadcast command
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Usage: /broadcast Your message here")
+        await update.message.reply_text("Usage: /broadcast <message>")
         return
 
     message = " ".join(context.args)
-    sent_count = 0
-    failed_count = 0
+    sent = 0
+    failed = 0
+    all_users = set()
 
-    all_user_ids = set()
-    for chat_users in members_db.values():
-        all_user_ids.update(chat_users.keys())
+    for chat_id, users in members_db.items():
+        all_users.update(users.keys())
 
-    for user_id in all_user_ids:
+    for uid in all_users:
         try:
-            await context.bot.send_message(chat_id=int(user_id), text=message)
-            sent_count += 1
+            await context.bot.send_message(chat_id=int(uid), text=message)
+            sent += 1
         except:
-            failed_count += 1
+            failed += 1
 
-    await update.message.reply_text(f"Broadcast sent to {sent_count} users. Failed: {failed_count}")
+    await update.message.reply_text(f"✅ Sent: {sent}
+❌ Failed: {failed}")
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    total_users = set()
+    total_groups = 0
+    total_channels = 0
+
+    for chat_id, users in members_db.items():
+        if chat_id == "private_users":
+            total_users.update(users.keys())
+            continue
+        total_users.update(users.keys())
+        try:
+            chat = await context.bot.get_chat(int(chat_id))
+            if chat.type in ["group", "supergroup"]:
+                total_groups += 1
+            elif chat.type == "channel":
+                total_channels += 1
+        except:
+            pass
+
+    ram = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+
+    text = (
+        "*Bot Global Status*
+"
+        f"👤 Users: `{len(total_users)}`
+"
+        f"👥 Groups: `{total_groups}`
+"
+        f"📢 Channels: `{total_channels}`
+"
+        f"🧠 RAM: `{ram.used // (1024**2)} MB / {ram.total // (1024**2)} MB`
+"
+        f"💾 Disk: `{disk.used // (1024**2)} MB / {disk.total // (1024**2)} MB`"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+async def group_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    chat_id = str(chat.id)
+
+    if chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("This command only works in groups.")
+        return
+
+    members = members_db.get(chat_id, {})
+    await update.message.reply_text(f"👥 Group Members: `{len(members)}`", parse_mode=ParseMode.MARKDOWN)
 
 def main():
-    threading.Thread(target=run_web).start()
+    BOT_TOKEN = os.environ.get("BOT_TOKEN")
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
-    app_bot.add_handler(CommandHandler("start", start_command))
-    app_bot.add_handler(CommandHandler("mentionall", mention_all))
-    app_bot.add_handler(CommandHandler("adduser", add_user))
-    app_bot.add_handler(CommandHandler("broadcast", broadcast))
-    app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), store_user))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("mentionall", mention_all))
+    app.add_handler(CommandHandler("broadcast", broadcast))
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("groupstatus", group_status))
+    app.add_handler(MessageHandler(filters.ALL, store_user))
 
     print("Bot is running...")
-    app_bot.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
