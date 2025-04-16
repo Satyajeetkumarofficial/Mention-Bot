@@ -29,6 +29,11 @@ async def start(client, message: Message):
 
 @app.on_message(filters.command("mentionall") & filters.group)
 async def mention_all(client, message: Message):
+    # Check if the user is an admin or group owner
+    member = await client.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["administrator", "creator"]:
+        return await message.reply("सिर्फ़ ग्रुप एडमिन्स इस कमांड का इस्तेमाल कर सकते हैं।")
+
     chat_id = message.chat.id
     mentions = []
     async for member in app.get_chat_members(chat_id):
