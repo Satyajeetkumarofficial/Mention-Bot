@@ -1,2 +1,6 @@
-python-telegram-bot==20.6
+python-telegram-bot==20.7
+motor
 pymongo
+dnspython
+nest_asyncio
+python-dotenv
