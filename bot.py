@@ -31,7 +31,7 @@ async def start(client, message: Message):
 async def mention_all(client, message: Message):
     # Check if the user is an admin or group owner
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status not in ["administrator", "creator"]:
+    if member.status not in ["owner", "admin"]:
         return await message.reply("सिर्फ़ ग्रुप एडमिन्स इस कमांड का इस्तेमाल कर सकते हैं।")
 
     chat_id = message.chat.id
