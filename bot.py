@@ -6,7 +6,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 
 members_file = "members.json"
 
-# Load members database
 if os.path.exists(members_file):
     with open(members_file, "r") as f:
         members_db = json.load(f)
