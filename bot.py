@@ -1,35 +1,81 @@
-import logging
+from pyrogram import Client, filters
+from pyrogram.types import Message
+from pymongo import MongoClient
+from dotenv import load_dotenv
 import asyncio
 import os
-from telegram.ext import Application, CommandHandler
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 MONGO_URL = os.getenv("MONGO_URL")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+mongo = MongoClient(MONGO_URL)
+db = mongo["mentionbot"]
+users_col = db["users"]
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client["mention_bot"]
-users_collection = db["users"]
+app = Client("mention_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-async def start(update, context):
-    await update.message.reply_text("Hello! I'm alive.")
+@app.on_message(filters.private & filters.command("start"))
+async def start(client, message: Message):
+    user_id = message.from_user.id
+    users_col.update_one({"_id": user_id}, {"$set": {"name": message.from_user.first_name}}, upsert=True)
+    await message.reply_text(f"Hey {message.from_user.first_name}, I'm your group mention bot!")
 
-async def main():
-    app = Application.builder().token(TOKEN).build()
+@app.on_message(filters.command("mentionall") & filters.group)
+async def mention_all(client, message: Message):
+    member = await client.get_chat_member(message.chat.id, message.from_user.id)
+    if not (member.status == "creator" or (member.status == "administrator" and member.can_manage_chat)):
+        return await message.reply("यह कमांड सिर्फ़ बॉट एडमिन या ग्रुप ओनर ही चला सकते हैं।")
+    chat_id = message.chat.id
+    mentions = []
+    async for member in app.get_chat_members(chat_id):
+        if member.user.is_bot is False:
+            mentions.append(f"[{member.user.first_name}](tg://user?id={member.user.id})")
 
-    app.add_handler(CommandHandler("start", start))
+    mention_text = ''
+    count = 0
+    for mention in mentions:
+        mention_text += mention + " "
+        count += 1
+        if count % 5 == 0:
+            await message.reply(mention_text)
+            mention_text = ''
+    if mention_text:
+        await message.reply(mention_text)
 
-    logger.info("Bot started...")
-    await app.run_polling()
+@app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
+async def broadcast(client, message: Message):
+    if not message.reply_to_message:
+        return await message.reply("Reply to a message to broadcast.")
+    
+    sent = 0
+    for user in users_col.find():
+        try:
+            await client.copy_message(user["_id"], message.chat.id, message.reply_to_message.message_id)
+            sent += 1
+            await asyncio.sleep(0.1)
+        except:
+            continue
+    await message.reply(f"Broadcast sent to {sent} users.")
 
-if __name__ == "__main__":
-    import nest_asyncio
-    nest_asyncio.apply()
+@app.on_message(filters.command("status") & filters.user(ADMIN_ID))
+async def status(client, message: Message):
+    total_users = users_col.count_documents({})
+    groups = users_col.distinct("group_id")
+    await message.reply_text(f"Bot Status:\nTotal Users: {total_users}\nTotal Groups: {len(groups)}")
 
-    asyncio.get_event_loop().run_until_complete(main())
+@app.on_message(filters.group)
+async def save_group_user(client, message: Message):
+    user = message.from_user
+    if user and not user.is_bot:
+        users_col.update_one(
+            {"_id": user.id},
+            {"$set": {"name": user.first_name, "group_id": message.chat.id}},
+            upsert=True
+        )
+
+app.run()
