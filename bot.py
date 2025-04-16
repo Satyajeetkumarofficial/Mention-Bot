@@ -29,28 +29,35 @@ async def start(client, message: Message):
 
 @app.on_message(filters.command("mentionall") & filters.group)
 async def mention_all(client, message: Message):
-    # Check if the user is an admin or group owner
-    member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status not in ["Owner", "Admin"]:
-        return await message.reply("सिर्फ़ ग्रुप एडमिन्स इस कमांड का इस्तेमाल कर सकते हैं।")
+    try:
+        # चेक करें कि यूज़र एडमिन है या नहीं
+        user = await client.get_chat_member(message.chat.id, message.from_user.id)
 
-    chat_id = message.chat.id
-    mentions = []
-    async for member in app.get_chat_members(chat_id):
-        if member.user.is_bot is False:
-            mentions.append(f"[{member.user.first_name}](tg://user?id={member.user.id})")
+        if user.status not in ["administrator", "creator"]:
+            await message.reply("सिर्फ़ ग्रुप एडमिन्स इस कमांड का उपयोग कर सकते हैं।")
+            return
 
-    mention_text = ''
-    count = 0
-    for mention in mentions:
-        mention_text += mention + " "
-        count += 1
-        if count % 5 == 0:
+        # सभी मेंबर्स को मेंशन करना शुरू करें
+        mentions = []
+        async for member in client.get_chat_members(message.chat.id):
+            if not member.user.is_bot:
+                mentions.append(f"[{member.user.first_name}](tg://user?id={member.user.id})")
+
+        mention_text = ''
+        count = 0
+        for mention in mentions:
+            mention_text += mention + " "
+            count += 1
+            if count % 5 == 0:
+                await message.reply(mention_text)
+                mention_text = ''
+        if mention_text:
             await message.reply(mention_text)
-            mention_text = ''
-    if mention_text:
-        await message.reply(mention_text)
 
+    except Exception as e:
+        print("Error:", e)
+        await message.reply("कुछ गड़बड़ हो गई। कृपया बाद में प्रयास करें।")
+        
 @app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
 async def broadcast(client, message: Message):
     if not message.reply_to_message:
