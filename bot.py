@@ -31,13 +31,18 @@ async def start(client, message: Message):
 @app.on_message(filters.command("mentionall") & filters.group)
 async def mention_all(client: Client, message: Message):
     try:
-        # Check if the user is admin or creator using pyrogram.enums
+        # Check if user is admin or group owner
         member = await client.get_chat_member(message.chat.id, message.from_user.id)
-
         if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
             return await message.reply("❌ केवल ग्रुप एडमिन्स इस कमांड का उपयोग कर सकते हैं।")
 
-        # Mention all non-bot users
+        # Extract custom message after command, if any
+        custom_message = message.text.split(" ", 1)
+        if len(custom_message) > 1:
+            custom_text = custom_message[1]
+        else:
+            custom_text = ""
+
         mentions = []
         async for m in client.get_chat_members(message.chat.id):
             if not m.user.is_bot:
@@ -49,14 +54,20 @@ async def mention_all(client: Client, message: Message):
             mention_text += mention + " "
             count += 1
             if count % 5 == 0:
-                await message.reply(mention_text)
+                if custom_text:
+                    await message.reply(mention_text + "\n\n" + custom_text)
+                else:
+                    await message.reply(mention_text)
                 mention_text = ''
         if mention_text:
-            await message.reply(mention_text)
+            if custom_text:
+                await message.reply(mention_text + "\n\n" + custom_text)
+            else:
+                await message.reply(mention_text)
 
     except Exception as e:
-        print(f"Error: {e}")
-        await message.reply("⚠️ कुछ त्रुटि हुई।")
+        print("Error:", e)
+        await message.reply("⚠️ कुछ गलत हो गया।")
 @app.on_message(filters.command("broadcast") & filters.user(ADMIN_ID))
 async def broadcast(client, message: Message):
     if not message.reply_to_message:
