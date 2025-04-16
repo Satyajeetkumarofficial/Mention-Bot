@@ -91,6 +91,29 @@ async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=ParseMode.MARKDOWN
         )
 
+# Broadcast command
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Usage: /broadcast Your message here")
+        return
+
+    message = " ".join(context.args)
+    sent_count = 0
+    failed_count = 0
+
+    all_user_ids = set()
+    for chat_users in members_db.values():
+        all_user_ids.update(chat_users.keys())
+
+    for user_id in all_user_ids:
+        try:
+            await context.bot.send_message(chat_id=int(user_id), text=message)
+            sent_count += 1
+        except:
+            failed_count += 1
+
+    await update.message.reply_text(f"Broadcast sent to {sent_count} users. Failed: {failed_count}")
+
 def main():
     threading.Thread(target=run_web).start()
 
@@ -98,6 +121,7 @@ def main():
     app_bot.add_handler(CommandHandler("start", start_command))
     app_bot.add_handler(CommandHandler("mentionall", mention_all))
     app_bot.add_handler(CommandHandler("adduser", add_user))
+    app_bot.add_handler(CommandHandler("broadcast", broadcast))
     app_bot.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), store_user))
 
     print("Bot is running...")
