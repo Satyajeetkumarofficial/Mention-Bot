@@ -39,7 +39,7 @@ async def store_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await store_user(update, context)
-    await update.message.reply_text("I am Mention Bot.
+    await update.message.reply_text("I am Mention Bot.\nAdd me to your group and send /mentionall")
 Add me to your group and send /mentionall")
 
 async def mention_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
