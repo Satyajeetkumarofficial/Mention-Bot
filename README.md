@@ -1,35 +1,31 @@
 # Telegram Mention Bot
 
-A Telegram bot built with Python to:
-- Mention all group members (including previously joined ones)
-- Broadcast messages to all users
-- Show bot status (user count, RAM, storage, etc.)
-- Webhook compatibility for platforms like Koyeb
-
----
+A Telegram bot to mention all members (including past ones), broadcast messages, and show bot/group stats.
 
 ## Features
 
-- `/start` — Introduction message
-- `/mentionall` — Mentions all users in a group
-- `/adduser <user_id> <full name>` — Manually add user if not tracked
-- `/broadcast <message>` — Send message to all saved users
-- `/status` — Shows number of users, groups, RAM & disk usage
+- Mention all users in a group using `/mentionall`
+- Broadcast messages to all users using `/broadcast`
+- Show bot-wide stats with `/status`
+- Show group-specific user count with `/groupstatus`
 
----
+## Deployment
 
-## Deployment (Koyeb or similar)
+1. Clone the repo or extract this ZIP.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Set your bot token in an environment variable:
+   ```bash
+   export BOT_TOKEN=your_bot_token_here
+   ```
+4. Run the bot:
+   ```bash
+   python bot.py
+   ```
 
-### 1. **Clone or Upload Project**
-Upload all files including:
-- `bot.py`
-- `requirements.txt`
-- `members.json` (optional, auto-created)
-- `README.md`
+## Notes
 
-### 2. **Create Python App**
-Use a service like [Koyeb](https://www.koyeb.com) or [Render](https://render.com):
-
-- Set **Build & Run** command to:
-  ```bash
-  pip install -r requirements.txt && python bot.py
+- Users must start the bot in private chat to receive broadcast messages.
+- The bot stores all users who interact in groups or private chat.
